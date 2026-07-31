@@ -1,0 +1,46 @@
+name: Build and Release dylib
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write   # 允许创建和更新 Release 资源
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Theos
+        run: |
+          brew install ldid
+          export THEOS=$HOME/theos
+          echo "THEOS=$THEOS" >> $GITHUB_ENV
+          echo "$THEOS/bin" >> $GITHUB_PATH
+          git clone --recursive https://github.com/theos/theos.git $THEOS
+          curl -LO https://github.com/theos/sdks/archive/master.zip
+          unzip master.zip
+          mkdir -p $THEOS/sdks
+          mv sdks-master/*.sdk $THEOS/sdks/ 2>/dev/null || true
+          ls $THEOS/sdks/
+
+      - name: Build
+        run: |
+          make clean
+          # 开启 FINALPACKAGE=1 进行正式版编译
+          make FINALPACKAGE=1
+
+      - name: Upload dylib to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "AntiDiDaAD dylib (Release)"
+          prerelease: false
+          # 指向生成的 AntiDiDaAD.dylib
+          files: .theos/obj/AntiDiDaAD.dylib
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
