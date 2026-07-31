@@ -3,6 +3,7 @@
 
 #import <mach-o/loader.h>
 #import <stddef.h>
+#import <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,6 +16,7 @@ struct rebinding {
 };
 
 int rebind_symbols(struct rebinding rebindings[], size_t rebindings_nel);
+
 int rebind_symbols_image(void *header,
                          intptr_t slide,
                          struct rebinding rebindings[],
