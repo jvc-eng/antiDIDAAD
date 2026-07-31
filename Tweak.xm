@@ -1,35 +1,48 @@
 #import <Foundation/Foundation.h>
 #import <netdb.h>
-#import <substrate.h>
+#import <dlfcn.h>
+#import <mach-o/dyld.h>
+#import <mach-o/loader.h>
+#import <mach-o/nlist.h>
 
-// 定义黑名单域名后缀列表
+// ---------- fishhook 结构体声明 ----------
+struct rebinding {
+    const char *name;
+    void *replacement;
+    void **replaced;
+};
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+    int rebind_symbols(struct rebinding rebindings[], size_t rebindings_nel);
+#ifdef __cplusplus
+}
+#endif
+// ----------------------------------------
+
 static NSArray<NSString *> *blockedSuffixes;
-
-// 原 getaddrinfo 函数指针
 static int (*orig_getaddrinfo)(const char *hostname, const char *servname, const struct addrinfo *hints, struct addrinfo **res);
 
-// 替换后的 getaddrinfo 函数
 static int my_getaddrinfo(const char *hostname, const char *servname, const struct addrinfo *hints, struct addrinfo **res) {
     if (hostname != NULL) {
-        NSString *hostStr = [NSString stringWithUTF8String:hostname];
-        if (hostStr) {
-            hostStr = [hostStr lowercaseString];
-            for (NSString *suffix in blockedSuffixes) {
-                // 匹配完整域名或后缀匹配（例如 matching .admob.com 或者 admob.com）
-                if ([hostStr isEqualToString:suffix] || [hostStr hasSuffix:[@"." stringByAppendingString:suffix]]) {
-                    // 返回 EAI_NONAME 模拟 DNS 解析失败/主机不可达
-                    return EAI_NONAME;
+        @autoreleasepool {
+            NSString *hostStr = [NSString stringWithUTF8String:hostname];
+            if (hostStr) {
+                hostStr = [hostStr lowercaseString];
+                for (NSString *suffix in blockedSuffixes) {
+                    if ([hostStr isEqualToString:suffix] || [hostStr hasSuffix:[@"." stringByAppendingString:suffix]]) {
+                        return EAI_NONAME; // 拦截域名解析
+                    }
                 }
             }
         }
     }
-    // 非黑名单域名，放行调用原始函数
     return orig_getaddrinfo(hostname, servname, hints, res);
 }
 
 %ctor {
     @autoreleasepool {
-        // 嘀嗒出行 去广告及隐私追踪黑名单列表
         blockedSuffixes = @[
             @"admob.com",
             @"adservice.google.com",
@@ -62,7 +75,13 @@ static int my_getaddrinfo(const char *hostname, const char *servname, const stru
             @"umengcloud.com"
         ];
 
-        // 使用 C/C++ 层 Hook 拦截底层 getaddrinfo API
-        MSHookFunction((void *)getaddrinfo, (void *)my_getaddrinfo, (void **)&orig_getaddrinfo);
+        // 使用 fishhook 重绑定 getaddrinfo 符号，兼容免越狱环境
+        struct rebinding getaddrinfo_rebinding = {
+            "getaddrinfo",
+            (void *)my_getaddrinfo,
+            (void **)&orig_getaddrinfo
+        };
+        struct rebinding rebindings[] = { getaddrinfo_rebinding };
+        rebind_symbols(rebindings, 1);
     }
 }
