@@ -16,12 +16,14 @@ typedef struct segment_command_64 segment_command_t;
 typedef struct load_command load_command_t;
 typedef struct section_64 section_t;
 typedef struct nlist_64 nlist_t;
+#define LC_SEGMENT_ARCH_DEPENDENT LC_SEGMENT_64
 #else
 typedef struct mach_header mach_header_t;
 typedef struct segment_command segment_command_t;
 typedef struct load_command load_command_t;
 typedef struct section section_t;
 typedef struct nlist nlist_t;
+#define LC_SEGMENT_ARCH_DEPENDENT LC_SEGMENT
 #endif
 
 #ifndef SEG_DATA_CONST
@@ -145,6 +147,11 @@ static void rebind_symbols_for_image(struct rebindings_entry *rebindings,
       }
     }
   }
+}
+
+static void _rebind_symbols_for_image(const struct mach_header *header,
+                                      intptr_t slide) {
+    rebind_symbols_for_image(_rebindings_head, header, slide);
 }
 
 int rebind_symbols_image(void *header,
