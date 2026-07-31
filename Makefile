@@ -1,4 +1,3 @@
-# 针对移动设备架构配置
 TARGET := iphone:clang:latest:14.0
 ARCHS = arm64 arm64e
 
@@ -8,9 +7,10 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = AntiDiDaAD
 
-AntiDiDaAD_FILES = Tweak.xm
+# 1. 这里加上 fishhook.c
+AntiDiDaAD_FILES = Tweak.xm fishhook.c
 AntiDiDaAD_CFLAGS = -fobjc-arc
-# 关键：链接 Theos 内置的 fishhook 库
-AntiDiDaAD_LIBRARIES = fishhook
+
+# 2. 注意：绝对不要有 AntiDiDaAD_LIBRARIES = fishhook 这行！
 
 include $(THEOS_MAKE_PATH)/tweak.mk
